@@ -13,68 +13,30 @@ else
 end
 
 %% Total Pumping Rate - Optimization objective
-% Output Constraint condition by running Modflow2005
-for i=1:sz    
-    popCons(i,:) = gwmodel(pop(i,:)); 
-end
-
-%%  Judging constraint conditions
-[~,n]=size(popCons);
-g = zeros(sz,n);
+% Output Constraint condition by running Modflow
 for i=1:sz
-    
-    % Drawdown1 -- SWRB, HHB, MB
-    if popCons(i,1)>2.0
-        g(i,1)=1;
+    % gwmodel returns [DryCellFlag, TotalPumpingRate]
+    result = gwmodel(pop(i,:));
+
+    % Store Dry Cell Flag in popCons column 1
+    popCons(i,1) = result(1);
+
+    % The second element is the Total Pumping Rate (Volume/Day or Total Volume)
+    TotalPumping = result(2);
+
+    % Calculate Constraints violation
+    g = 0;
+    if popCons(i,1) == 1
+        g = 1;
     end
-    % Drawdown2 -- KB
-    if popCons(i,2)>1.0
-        g(i,2)=1;
-    end    
-    
-    % Groundwater Head -- KB
-    if popCons(i,3)<0.0
-        g(i,3)=1;
-    end      
-    
-    % Model Cell Dryout Indicator  
-    if popCons(i,4)==1
-        g(i,4)=1;
-    end      
-    
-    % Total Pumping Rate Constraint I 
-    % Maguires Borefield // Crescent Head  Borefields -520
-    if popCons(i,5)>260.0
-        g(i,5)=1;
-    end
-    
-    % Total Pumping Rate Constraint II --146
-    % Hat Head Borefield
-    if popCons(i,6)>73.0
-        g(i,6)=1;
-    end    
-    
-    % Total Pumping Rate Constraint III 
-    % South West Rocks Borefield -- 2500
-    % 1569 -- The total pumping should not exceed 50 percent of the allocation for each borefield.
-    if popCons(i,7)>1250.0
-        g(i,7)=1;
-    end    
-    
-    % Total Pumping Rate Constraint IV -- 146
-    % Kinchela Borefield
-    if popCons(i,8)>73.0
-        g(i,8)=1;
-    end
-    
-    %  Maximizing Total Pumping Rate -- Penalty function
-    popObj(i,1)=sum(pop(i,:))+sum(g(i,:))*(-1.0e+06);
-    
-    
+
+    % Maximizing Total Pumping Rate -- Penalty function
+    % popObj is Maximized. If library minimizes, we should return -val.
+    % Assuming existing code maximizes because it adds negative penalty.
+    popObj(i,1) = TotalPumping + g * (-1.0e+06);
 end
 
 % CV -- Constraint Violation Count
-popCV = sum(g, 2);
-
+popCV = sum(popCons(:,1), 2); % Only 1 constraint (Dry Cell)
 
 end
